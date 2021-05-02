@@ -1,2 +1,2 @@
 # NEATCODE
-A small pure python library containing implementaitons of common python patterns
+A small pure python library containing implementations of common python patterns
