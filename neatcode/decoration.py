@@ -1,12 +1,19 @@
 import neatcode.policy as _policy
+import neatcode.object_manipulation as _object_manipulation
 
 class Decorator(object): # Base class for decorators
     # TODO: Propagate callable properties to decorator properties (e.g. documentation)
+    
+    DOC_SUFIX = "\nDecorated by: {decoratorRepr}\n"
     def __init__(self, callable_):
         self.callable = callable_
+        self.__doc__ = self._generate_doc()
 
     def __call__(self,*args,**kwargs):
         return self.callable(*args,**kwargs)
+
+    def _generate_doc(self):
+        return self.callable.__doc__ + self.DOC_SUFIX.format(decoratorRepr=repr(self))
 
 ## Arguments
 ### Defaults
@@ -136,3 +143,12 @@ class CompositionDecorator(MultiCallableDecorator):
             r = callable_(r)
 
         return r
+
+class CombinationDecorator(MultiCallableDecorator): 
+    def __init__(self,callables):
+        super().__init__(callables)
+
+    def __call__(self,*args,**kwargs):
+        oc = _object_manipulation.ObjectCaller(args=args,kwargs=kwargs)
+        return tuple(map(oc,self.callables))
+        
