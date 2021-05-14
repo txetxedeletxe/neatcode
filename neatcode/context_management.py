@@ -27,6 +27,7 @@ Timing CMs
 CMs for measuring the execution time of code blocks
 
     TimingCM                Record the timestamp at the beginning and the end of the context
+    CMIterator              Iterate through 
 
 Meta
 ----
@@ -34,6 +35,7 @@ Meta
 Tools to augment the usability of CMs.
 
     CombinedCM              Execute multiple CMs in a single context.
+    CMIterator              Iterate throught CMs activating each one for one iteration.
 
 """
             
@@ -44,12 +46,12 @@ class ObjectLifecycleCM(object):
 
         Creates the object on entering the context and destorys it on exit.
 
-        Object creation is handled by a callback with optional arguments.
+        Object creation is handled by a callback `constructor` with optional arguments.
     """
     def __init__(self,
-                    constructor,
-                    args=tuple(),
-                    kwargs=dict()):
+                    constructor : "callable",
+                    args : tuple = tuple(),
+                    kwargs : dict = dict()):
         self.constructor = constructor
 
         self.args = args
@@ -70,15 +72,15 @@ class SelfConstructingOLCM(ObjectLifecycleCM):
 
         Same behaviour as ´ObjectLifecycleCM´.
 
-        Object creation is handled by the method ´construct´, which users may override 
+        Object creation is handled by a internal method ´_construct´, which users may override 
         in subclasses.
     """
     def __init__(self, 
-                    args=tuple(),
-                    kwargs=dict()):
-        super().__init__(self.construct,args=args,kwargs=kwargs)
+                    args : tuple = tuple(),
+                    kwargs : dict = dict()):
+        super().__init__(self._construct,args=args,kwargs=kwargs)
         
-    def construct(self, *args, **kwargs):
+    def _construct(self, *args, **kwargs):
         return None
 
 ## Garbage Collection
@@ -92,8 +94,8 @@ class GarbageCollectorCM(object):
         CM (configurable in construction).
     """
     def __init__(self,
-                    pre_collect=False,
-                    post_collect=True):
+                    pre_collect : bool = False,
+                    post_collect : bool = True):
         self.pre_collect = pre_collect
         self.post_collect = post_collect
 
@@ -128,30 +130,53 @@ class TimingCM(object):
         return self.t_end - self.t_start
 
 ## META
-class CombinedCM(object):
+class MultiCMWrapper(object): # TODO 
+    """
+        Base class for wrappers that wrap multiple CMs.
+
+        Defines a `cms` attribute that contains a collection of context managers.
+    """
+    def __init__(self, cms : tuple["ContextManager"]):
+        self.cms = cms
+
+class CombinedCM(MultiCMWrapper):
     """
         Execute multiple CMs in a single context.
 
-        Wraps multiple CMs and executes them on context entry and exit.
+        CM that wraps multiple CMs and executes all of them on context entry and exit.
 
         On context entry    -   Returns a tuple with the return values of the wrapped CMs (in corresponding order)
         On context exit     -   Returns a boolean value aggregated from exit return values of the wrapped CMs.
                                 The aggregation function is configurable using the attribute `exit_criterion`
     """
     def __init__(self,
-                    cms,
-                    exit_criterion=all):
-        self.cms = cms
+                    cms : tuple["ContextManager"],
+                    exit_criterion : "callable" = all):
+        super().__init__(cms=cms)
 
         self.exit_criterion = exit_criterion
 
     def __enter__(self):
-        return [cm.__enter__() for cm in self.cms]
+        return tuple((cm.__enter__() for cm in self.cms))
 
     def __exit__(self,*args,**kwargs):
-        exit_val = [cm.__exit__(*args,**kwargs) for cm in self.cms]
+        exit_val = tuple((cm.__exit__(*args,**kwargs) for cm in self.cms))
         return self.exit_criterion(exit_val)
             
 
+class CMIterator(MultiCMWrapper):
+    """
+        Iterate throught CMs activating each one for one iteration.
+
+        Iterator that wraps multiple CM. When iterated through, it activates each CM for one iteration (in
+        the corresponding order).
+    """
+    def __init__(self, cms : tuple["ContextManager"]):
+        super().__init__(cms)
+
+    def __iter__(self):
+        for cm in self.cms:
+            with cm as cm_r:
+                yield cm_r
 
 

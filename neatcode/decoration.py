@@ -1,10 +1,11 @@
+# TODO document code
+
 import neatcode.policy as _policy
 import neatcode.object_manipulation as _object_manipulation
 
-class Decorator(object): # Base class for decorators
-    # TODO: Propagate callable properties to decorator properties (e.g. documentation)
-    
-    DOC_SUFIX = "\nDecorated by: {decoratorRepr}\n"
+class Decorator(object): # Base class for decorators    
+    DOC_PREFIX = "\n@ Decorated by:\t{decoratorRepr}\n"
+    REPR_STR = "{className}({args})"
     def __init__(self, callable_):
         self.callable = callable_
         self.__doc__ = self._generate_doc()
@@ -12,8 +13,18 @@ class Decorator(object): # Base class for decorators
     def __call__(self,*args,**kwargs):
         return self.callable(*args,**kwargs)
 
+    def __repr__(self):
+        args, kwargs = self.__args__()
+        
+        return self.REPR_STR.format(className=type(self).__name__,)
+
+    def __args__(self): # TODO implement object manipulator to get this method
+        return tuple(), dict(callable_="callable_")
+
     def _generate_doc(self):
-        return self.callable.__doc__ + self.DOC_SUFIX.format(decoratorRepr=repr(self))
+        c_doc = self.callable.__doc__ or ""
+        return self.DOC_PREFIX.format(decoratorRepr=repr(self)) + c_doc
+
 
 ## Arguments
 ### Defaults
@@ -130,19 +141,25 @@ class ReturnValueSelectorDecorator(Decorator):
 
 class MultiCallableDecorator(object): # Does not inherit off of Decorator cuz it decorates various callables
     def __init__(self, callables):
-        self.callables = callables 
+        self.callables = callables
+        self.__doc__ = self._generate_doc()
+
+    def _generate_doc(self):
+        return ""
 
 ## Composition
 class CompositionDecorator(MultiCallableDecorator): 
     def __init__(self,callables):
         super().__init__(callables)
-
+        
     def __call__(self,*args,**kwargs):
         r = self.callables[0](*args,**kwargs)
         for callable_ in self.callables[1:]:
             r = callable_(r)
 
         return r
+
+    
 
 class CombinationDecorator(MultiCallableDecorator): 
     def __init__(self,callables):
