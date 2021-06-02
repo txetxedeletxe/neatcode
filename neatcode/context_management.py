@@ -5,6 +5,16 @@ Context Management
 
 This module contains **Context Manager** (CM) pattern implementations.
 
+Name Overlapping CMs
+--------------------
+
+CMs for temporarily overlapping (substituting and adding) "names" to different namespace constructs
+
+    DictOverlapCM           Overlap the values of names (keys) in a dictionary
+    NameOverlapCM           Overlap the values of names in a namespace (global namespace by default)
+    BuiltinOverlapCM        Overlap builtin values (use with caution)
+
+
 Object Lifecycle CMs
 --------------------
 
@@ -27,7 +37,6 @@ Timing CMs
 CMs for measuring the execution time of code blocks
 
     TimingCM                Record the timestamp at the beginning and the end of the context
-    CMIterator              Iterate through 
 
 Meta
 ----
@@ -38,7 +47,49 @@ Tools to augment the usability of CMs.
     CMIterator              Iterate throught CMs activating each one for one iteration.
 
 """
-            
+
+## Name Overlap
+class DictOverlapCM(object):
+    def __init__(self, dictionary:dict, overwrite_dict:dict):
+        self.dictionary = dictionary
+        self.overwrite_dict = overwrite_dict
+
+        self.overwritten_dict = None
+        self.added_keys = None
+
+    def __enter__(self):
+        overwrite_keys = set(self.overwrite_dict.keys())
+
+        overwritten_keys = overwrite_keys & (set(self.dictionary.keys()))
+        overwritten_values = map(self.dictionary.__getitem__,overwritten_keys)
+        self.overwritten_dict = dict(zip(overwritten_keys,overwritten_values))
+        
+        self.added_keys = overwrite_keys - overwritten_keys
+
+        self.dictionary.update(self.overwrite_dict)
+
+    def __exit__(self,*args,**kwargs):
+        self.dictionary.update(self.overwritten_dict)
+        for k in self.added_keys: del self.dictionary[k] # TODO add exception handling
+
+import inspect as _inspect
+class NameOverlapCM(DictOverlapCM):
+    def __init__(self, overwrite_dict:dict, namespace=None):
+        self.namespace = namespace
+        if self.namespace is None:
+            cf = _inspect.currentframe()
+            if cf is None:
+                pass # TODO add error for unexpected behaviour
+            globals_ = cf.f_back.f_globals
+            super().__init__(globals_,overwrite_dict)
+        else:
+            super().__init__(self.namespace.__dict__,overwrite_dict)
+
+import builtins as _builtins
+class BuiltinOverlapCM(NameOverlapCM):
+    def __init__(self, overwrite_dict:dict):
+        super().__init__(overwrite_dict,_builtins)
+
 ## Object lifecycle
 class ObjectLifecycleCM(object):
     """
@@ -136,7 +187,7 @@ class MultiCMWrapper(object): # TODO
 
         Defines a `cms` attribute that contains a collection of context managers.
     """
-    def __init__(self, cms : tuple["ContextManager"]):
+    def __init__(self, cms : tuple):
         self.cms = cms
 
 class CombinedCM(MultiCMWrapper):
@@ -150,7 +201,7 @@ class CombinedCM(MultiCMWrapper):
                                 The aggregation function is configurable using the attribute `exit_criterion`
     """
     def __init__(self,
-                    cms : tuple["ContextManager"],
+                    cms : tuple,
                     exit_criterion : "callable" = all):
         super().__init__(cms=cms)
 
@@ -171,7 +222,7 @@ class CMIterator(MultiCMWrapper):
         Iterator that wraps multiple CM. When iterated through, it activates each CM for one iteration (in
         the corresponding order).
     """
-    def __init__(self, cms : tuple["ContextManager"]):
+    def __init__(self, cms : tuple):
         super().__init__(cms)
 
     def __iter__(self):
