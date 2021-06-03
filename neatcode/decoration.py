@@ -2,39 +2,43 @@
 
 import neatcode.policy as _policy
 import neatcode.object_manipulation as _object_manipulation
+import neatcode.base as _base
 
+import re as _re
 import itertools as _itertools
 
-class Decorator(object): # Base class for decorators    
-    DOC_FORMAT = "\n@ Decorated by:\t{decoratorRepr}\n{callableDoc}"
-    REPR_STR = "{className}({args})"
+class Decorator(_base.ConsistentObjectRepresentingBase,
+                    _base.AutoDocumentingBase): # Base class for decorators    
+    _DOC_FORMAT = "\n@ Decorated by:\t{decoratorRepr}\n{callableDoc}"
+    _SHALLOW_REGEX=_re.compile(r"^([^()]*)(\(.*\))?$")
     def __init__(self, callable_):
         self.callable = callable_
 
-        self._generate_doc()
+        _base.ConsistentObjectRepresentingBase.__init__(self,args=(self.callable,))
+        _base.AutoDocumentingBase.__init__(self)
 
     def __call__(self,*args,**kwargs):
         return self.callable(*args,**kwargs)
 
-    # Meta stuff # TODO this could be done in a further baseclass
-    def __repr__(self):
-        args, kwargs = self.__argsrepr__()
-        
-        kwargs_strs = _itertools.starmap("{}={}".format,kwargs.items())
-        args_str = ",".join((*args,*kwargs_strs))
-
-        return self.REPR_STR.format(className=type(self).__name__,args=args_str)
-
-    def __argsrepr__(self):
-        return tuple(), dict(callable_="callable_")
-
     # Doc generation
-    def _get_doc(self):
+    def _get_doc(self): # Can this be made cleaner?
         c_doc = self.callable.__doc__ or ""
-        return self.DOC_FORMAT.format(decoratorRepr=repr(self),callableDoc=c_doc)
 
-    def _generate_doc(self):
-        self.__doc__ = self._get_doc()
+        args, kwargs = self._get_argsrepr()
+        
+        args_match = map(self._SHALLOW_REGEX.match,args)
+        kwargs_match = map(self._SHALLOW_REGEX.match,kwargs.values())
+
+        args_values = tuple((m.group(0) for m in args_match))
+        kwargs_values = tuple((m.group(0) for m in kwargs_match))
+
+        args = args_values
+        kwargs = dict(zip(kwargs.keys(),kwargs_values))
+
+        arg_str = self._combine_argsrepr(args,kwargs)
+        self_repr = self._get_formated_repr(arg_str)
+
+        return self._DOC_FORMAT.format(decoratorRepr=self_repr,callableDoc=c_doc)
 
     
 
@@ -155,10 +159,16 @@ class ReturnValueSelectorDecorator(Decorator):
 class MultiCallableDecorator(object): # Does not inherit off of Decorator cuz it decorates various callables
     def __init__(self, callables):
         self.callables = callables
-        self.__doc__ = self._generate_doc()
+        
+        self._generate_doc()
 
-    def _generate_doc(self):
+
+
+    # Doc generation # TODO code reuse here
+    def _get_doc(self):
         return ""
+    def _generate_doc(self):
+        self.__doc__ = self._get_doc()
 
 ## Composition
 class CompositionDecorator(MultiCallableDecorator): 
@@ -170,9 +180,7 @@ class CompositionDecorator(MultiCallableDecorator):
         for callable_ in self.callables[1:]:
             r = callable_(r)
 
-        return r
-
-    
+        return r    
 
 class CombinationDecorator(MultiCallableDecorator): 
     def __init__(self,callables):
