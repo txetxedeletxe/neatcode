@@ -3,27 +3,40 @@
 import neatcode.policy as _policy
 import neatcode.object_manipulation as _object_manipulation
 
+import itertools as _itertools
+
 class Decorator(object): # Base class for decorators    
-    DOC_PREFIX = "\n@ Decorated by:\t{decoratorRepr}\n"
+    DOC_FORMAT = "\n@ Decorated by:\t{decoratorRepr}\n{callableDoc}"
     REPR_STR = "{className}({args})"
     def __init__(self, callable_):
         self.callable = callable_
-        self.__doc__ = self._generate_doc()
+
+        self._generate_doc()
 
     def __call__(self,*args,**kwargs):
         return self.callable(*args,**kwargs)
 
+    # Meta stuff # TODO this could be done in a further baseclass
     def __repr__(self):
-        args, kwargs = self.__args__()
+        args, kwargs = self.__argsrepr__()
         
-        return self.REPR_STR.format(className=type(self).__name__,)
+        kwargs_strs = _itertools.starmap("{}={}".format,kwargs.items())
+        args_str = ",".join((*args,*kwargs_strs))
 
-    def __args__(self): # TODO implement object manipulator to get this method
+        return self.REPR_STR.format(className=type(self).__name__,args=args_str)
+
+    def __argsrepr__(self):
         return tuple(), dict(callable_="callable_")
 
-    def _generate_doc(self):
+    # Doc generation
+    def _get_doc(self):
         c_doc = self.callable.__doc__ or ""
-        return self.DOC_PREFIX.format(decoratorRepr=repr(self)) + c_doc
+        return self.DOC_FORMAT.format(decoratorRepr=repr(self),callableDoc=c_doc)
+
+    def _generate_doc(self):
+        self.__doc__ = self._get_doc()
+
+    
 
 
 ## Arguments

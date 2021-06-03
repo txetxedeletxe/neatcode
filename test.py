@@ -111,20 +111,22 @@ class DocumentationTestDecoration(unittest.TestCase):
         c1 = decoration.PreargumentDecorator
         c1 = decoration.PreargumentDecorator(c1,preargs=(c0,))
 
+        print("PreargumentDecorator instance doc:\n",c1.__doc__)
+
         c2 = decoration.ArgPackDecorator
         c2 = decoration.PreargumentDecorator(c2,prekwargs=dict(args_kw="args",kwarg_kw="kwargs"))
 
+        print("PreargumentDecorator instance doc:\n",c2.__doc__)
+
         c = decoration.CompositionDecorator((c1,c2)) # This is a metaclass, istances of it are classes
+
+        print("CompositionDecorator instance doc:\n",c.__doc__)
 
         ke31 = c(prekwargs=dict(method_name="__getitem__"))
         ke32 = c(prekwargs=dict(method_name="__getitem__"))
 
-        ke31_list = list(map(ke31(self.key),self.items))
-        ke32_list = list(map(ke32(self.key),self.items))
-
-        self.assertListEqual(ke31_list,self.correct_result)
-        self.assertListEqual(ke32_list,self.correct_result)
-        
+        print("ke31 instance doc:\n",ke31.__doc__)
+        print("ke32 instance doc:\n",ke32.__doc__)
 
 
 
