@@ -1,3 +1,5 @@
+# TODO document code
+
 import itertools as _itertools
 
 class ConsistentObjectRepresentingBase(object):

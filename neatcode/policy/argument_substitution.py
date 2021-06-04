@@ -1,3 +1,5 @@
+# TODO document code, finish adding policies
+
 # Base classes
 class PrioritizeAndMergeSubstitutor(object):
     def __init__(self):

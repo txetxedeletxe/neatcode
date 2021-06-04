@@ -1,25 +1,15 @@
+# TODO document code    
+
 import unittest
 import time
 
 import neatcode.object_manipulation as object_manipulation
 import neatcode.decoration as decoration
 
+import tests.base as _base
 
-class TimedUnitTest(unittest.TestCase): # This should be abstracted and put in another file when more files 
-                                        # are added for unit testing
-    def setUp(self):
-        self.t_start = time.time()
 
-    def tearDown(self):
-        self.t_end = time.time()
-        t = self.t_end - self.t_start
-
-        test_name = self.id().split(".")[-1]
-        print('%s: %.3f' % (test_name, t))
-
-    
-
-class UsabilityTestDecoration(TimedUnitTest):
+class UsabilityTestDecoration(_base.TimedUnitTest):
     def __init__(self, method_name,
                     key="hi",
                     items=[dict(hi=0)]*5000000):
@@ -68,6 +58,7 @@ class UsabilityTestDecoration(TimedUnitTest):
         self.assertListEqual(ke32_list,self.correct_result)
 
 
+# TODO substitute prints for assert statements
 class DocumentationTestDecoration(unittest.TestCase):
     def __init__(self, method_name,
                     key="hi"):

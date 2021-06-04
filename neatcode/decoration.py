@@ -7,41 +7,58 @@ import neatcode.base as _base
 import re as _re
 import itertools as _itertools
 
-class Decorator(_base.ConsistentObjectRepresentingBase,
-                    _base.AutoDocumentingBase): # Base class for decorators    
-    _DOC_FORMAT = "\n@ Decorated by:\t{decoratorRepr}\n{callableDoc}"
+class DecoratorBase(_base.ConsistentObjectRepresentingBase,
+                    _base.AutoDocumentingBase): # base
     _SHALLOW_REGEX=_re.compile(r"^([^()]*)(\(.*\))?$")
-    def __init__(self, callable_):
-        self.callable = callable_
 
-        _base.ConsistentObjectRepresentingBase.__init__(self,args=(self.callable,))
+    def __init__(self,
+                    args=tuple(),
+                    kwargs=dict()):
+
+        _base.ConsistentObjectRepresentingBase.__init__(self,args=args,kwargs=kwargs)
         _base.AutoDocumentingBase.__init__(self)
+
+    def _get_shallow_args(self,args,kwargs):
+        args_match = map(self._SHALLOW_REGEX.match,args)
+        kwargs_match = map(self._SHALLOW_REGEX.match,kwargs.values())
+
+        args_values = tuple((m.group(1) for m in args_match))
+        kwargs_values = tuple((m.group(1) for m in kwargs_match))
+
+        args = args_values
+        kwargs = dict(zip(kwargs.keys(),kwargs_values))
+
+        return args, kwargs
+
+class Decorator(DecoratorBase): # Base class for single callable decorators    
+    _DOC_FORMAT = "\n@ Decorated by:\t{decoratorRepr}\n{callableDoc}"
+    def __init__(self, callable_, args=tuple(),kwargs=dict()):
+        self.callable = callable_
+    
+        super().__init__(args=(self.callable,*args),kwargs=kwargs)
 
     def __call__(self,*args,**kwargs):
         return self.callable(*args,**kwargs)
 
     # Doc generation
-    def _get_doc(self): # Can this be made cleaner?
+    def _get_doc(self): 
         c_doc = self.callable.__doc__ or ""
 
+        # Get representation of args
         args, kwargs = self._get_argsrepr()
-        
-        args_match = map(self._SHALLOW_REGEX.match,args)
-        kwargs_match = map(self._SHALLOW_REGEX.match,kwargs.values())
+        args = args[1:] # The decorated callable is redundant
 
-        args_values = tuple((m.group(0) for m in args_match))
-        kwargs_values = tuple((m.group(0) for m in kwargs_match))
+        # Clean represenation of args
+        args, kwargs = self._get_shallow_args(args, kwargs)
 
-        args = args_values
-        kwargs = dict(zip(kwargs.keys(),kwargs_values))
-
+        # Combine argrepr into string
         arg_str = self._combine_argsrepr(args,kwargs)
         self_repr = self._get_formated_repr(arg_str)
 
+        # Format into doc
         return self._DOC_FORMAT.format(decoratorRepr=self_repr,callableDoc=c_doc)
 
     
-
 
 ## Arguments
 ### Defaults
@@ -124,7 +141,7 @@ class KwargsUnpackDecorator(Decorator):
 ## Return value
 class ReturnValueSelectorDecorator(Decorator):
     @staticmethod
-    def _default_error_handler(obj,key,error):
+    def _default_error_handler(obj,key,error): # This needs to be here?
         if (isinstance(error,TypeError)
             and key == 0):
             return [obj]
@@ -156,19 +173,15 @@ class ReturnValueSelectorDecorator(Decorator):
 
 
 
-class MultiCallableDecorator(object): # Does not inherit off of Decorator cuz it decorates various callables
-    def __init__(self, callables):
+class MultiCallableDecorator(DecoratorBase): # Does not inherit off of Decorator cuz it decorates various callables
+    def __init__(self, callables, args=tuple(),kwargs=dict()):
         self.callables = callables
         
-        self._generate_doc()
+        super().__init__(args=(callables,*args),kwargs=kwargs)
 
-
-
-    # Doc generation # TODO code reuse here
+    # Doc generation 
     def _get_doc(self):
-        return ""
-    def _generate_doc(self):
-        self.__doc__ = self._get_doc()
+        return "" # TODO finish up autodoc
 
 ## Composition
 class CompositionDecorator(MultiCallableDecorator): 
